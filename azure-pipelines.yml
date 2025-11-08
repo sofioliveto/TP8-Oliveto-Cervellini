@@ -51,6 +51,8 @@ stages:
             echo "-> Frontend tests"
             cd frontend
             npm ci
+            # Install jest-junit for test reporting
+            npm install --save-dev jest-junit
             npm test -- --ci --reporters=default --reporters=jest-junit || FRONTEND_RESULT=$?
             cd ..
 
