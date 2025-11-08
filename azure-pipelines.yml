@@ -102,12 +102,24 @@ stages:
             cd backend
             npm run test:coverage -- --ci || true
             
-            # Verificar cobertura del backend
-            COVERAGE=$(node -p "try{const cov=require('./coverage/coverage-summary.json');const total=cov.total;const avg=(total.lines.pct+total.statements.pct+total.functions.pct+total.branches.pct)/4;avg.toFixed(2)}catch(e){'0'}")
+            # Verificar cobertura del backend usando Python (disponible en Ubuntu agent)
+            COVERAGE=$(python3 -c "
+            import json
+            try:
+                with open('coverage/coverage-summary.json') as f:
+                    cov = json.load(f)
+                    total = cov['total']
+                    avg = (total['lines']['pct'] + total['statements']['pct'] + total['functions']['pct'] + total['branches']['pct']) / 4
+                    print(f'{avg:.2f}')
+            except:
+                print('0')
+            ")
             echo "Backend Coverage: ${COVERAGE}%"
             
-            # Comparar usando awk en lugar de bc
-            if [ $(echo "$COVERAGE < 70" | awk '{print ($1 < $3)}') -eq 1 ]; then
+            # Comparar usando Python
+            COVERAGE_CHECK=$(python3 -c "print('fail' if float('${COVERAGE}') < 70 else 'pass')")
+            
+            if [ "$COVERAGE_CHECK" == "fail" ]; then
               echo "❌ Backend coverage is below 70% (${COVERAGE}%)"
               exit 1
             fi
@@ -120,12 +132,24 @@ stages:
             cd frontend
             npm run test:coverage -- --ci || true
             
-            # Verificar cobertura del frontend
-            COVERAGE_FRONT=$(node -p "try{const cov=require('./coverage/coverage-summary.json');const total=cov.total;const avg=(total.lines.pct+total.statements.pct+total.functions.pct+total.branches.pct)/4;avg.toFixed(2)}catch(e){'0'}")
+            # Verificar cobertura del frontend usando Python
+            COVERAGE_FRONT=$(python3 -c "
+            import json
+            try:
+                with open('coverage/coverage-summary.json') as f:
+                    cov = json.load(f)
+                    total = cov['total']
+                    avg = (total['lines']['pct'] + total['statements']['pct'] + total['functions']['pct'] + total['branches']['pct']) / 4
+                    print(f'{avg:.2f}')
+            except:
+                print('0')
+            ")
             echo "Frontend Coverage: ${COVERAGE_FRONT}%"
             
-            # Comparar usando awk en lugar de bc
-            if [ $(echo "$COVERAGE_FRONT < 70" | awk '{print ($1 < $3)}') -eq 1 ]; then
+            # Comparar usando Python
+            COVERAGE_FRONT_CHECK=$(python3 -c "print('fail' if float('${COVERAGE_FRONT}') < 70 else 'pass')")
+            
+            if [ "$COVERAGE_FRONT_CHECK" == "fail" ]; then
               echo "❌ Frontend coverage is below 70% (${COVERAGE_FRONT}%)"
               exit 1
             fi
