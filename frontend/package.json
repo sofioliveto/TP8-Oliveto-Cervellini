@@ -8,7 +8,8 @@
     "dev": "nodemon index.js",
     "build": "echo 'Build frontend completed - static files ready'",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "express": "^4.18.2"
@@ -25,6 +26,6 @@
     "static",
     "tp04"
   ],
-  "author": "Tu Nombre",
+  "author": "Sofi",
   "license": "MIT"
 }

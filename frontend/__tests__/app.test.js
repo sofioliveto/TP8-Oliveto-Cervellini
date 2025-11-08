@@ -48,6 +48,15 @@ describe('Frontend - Gestión de Palabras', () => {
       expect(mensajeDiv.innerHTML).toContain(mensaje);
       expect(mensajeDiv.innerHTML).toContain('error');
     });
+
+    
+    test('debería limpiar el mensaje después de 3 segundos', () => {
+      jest.useFakeTimers();
+      appFunctions.mostrarMensaje('Hola', 'exito');
+      jest.runAllTimers();
+      const mensajeDiv = document.getElementById('mensaje');
+      expect(mensajeDiv.innerHTML).toBe('');
+    });
   });
 
   describe('cargarPalabras()', () => {

@@ -1,11 +1,8 @@
 # TP05 - Azure DevOps CI/CD Pipeline - Aplicación Palabras (Node.js)
 # Basado en arquitectura similar: Backend (Node.js) + Frontend (HTML/JS estáticos)
 
-# Trigger automático: solo cuando hay cambios en main
-trigger:
-  branches:
-    include:
-      - main
+# Trigger desactivado: el pipeline solo se ejecutará manualmente
+trigger: none
 
 # Pool de agentes: Ubuntu más reciente para mejor compatibilidad con Node.js
 pool:

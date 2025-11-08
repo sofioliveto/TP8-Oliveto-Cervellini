@@ -3,18 +3,31 @@ module.exports = {
   testEnvironment: 'jsdom',
   // Busca archivos de prueba
   testMatch: ['**/__tests__/**/*.test.js'],
-  // Configuración adicional antes de ejecutar las pruebas
+  // Le dice a Jest que ejecute setup.js antes de los tests para preparar el entorno (mocks, variables globales, etc.).
   setupFiles: ['<rootDir>/__tests__/setup.js'],
   // Mapea archivos de estilos a un mock vacío
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': '<rootDir>/__tests__/styleMock.js'
   },
-  // Cobertura de código
+  verbose: true,
+
+  // NUEVO: Cobertura de código
   collectCoverageFrom: [
     '**/*.js',
-    '!__tests__/**',
-    '!index.js',
-    '!node_modules/**'
+    '!**/__tests__/**',
+    '!**/coverage/**',
+    '!node_modules/**',
+    "!**/index.js",
+    '!jest.config.js'
   ],
-  verbose: true
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html', 'json'],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70
+    }
+  }
 };
