@@ -14,7 +14,7 @@ module.exports = {
     '!jest.config.js'
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html', 'json'],
+  coverageReporters: ['text', 'text-summary', 'lcov', 'html', 'json', 'json-summary'],
   // Define los umbrales mínimos de coverage
   coverageThreshold: {
     global: {
@@ -23,5 +23,16 @@ module.exports = {
       lines: 70,
       statements: 70
     }
-  }
+  },
+  // Para Azure DevOps
+  reporters: [
+    'default',
+    ['jest-junit', {
+      outputDirectory: './test-results',
+      outputName: 'junit.xml',
+      classNameTemplate: '{classname}',
+      titleTemplate: '{title}',
+      ancestorSeparator: ' › '
+    }]
+  ]
 };

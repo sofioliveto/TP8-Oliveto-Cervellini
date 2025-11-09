@@ -1,13 +1,9 @@
 # TP07 - Coverage y mas!!
-
-# Trigger desactivado: el pipeline solo se ejecutará manualmente
 trigger: none
 
-# Pool de agentes: Ubuntu más reciente para mejor compatibilidad con Node.js
 pool:
   vmImage: 'ubuntu-latest'
 
-# Variables globales del pipeline
 variables:
   nodeVersion: '20.x'  
   azureSubscription: 'azure-palabras-connection' 
@@ -15,61 +11,44 @@ variables:
   webAppNamePROD: 'palabras-prod' 
 
 stages:
-# =======================================
-# 🧱 BUILD & TEST
-# =======================================
 - stage: BuildAndTest
   displayName: "Build & Test Backend + Frontend"
   jobs:
     - job: BuildAndTest
       displayName: 'Test, Coverage, and Build Job'
       steps:
-        # Obtener código fuente del repositorio
         - checkout: self
           fetchDepth: 0
 
-        # ---- Setup Node.js ----
         - task: NodeTool@0
           displayName: "Setup Node.js $(nodeVersion)"
           inputs:
             versionSpec: "$(nodeVersion)"
 
-        # ---- PASO 1: UNIT TESTS ----
+        # ===============================================
+        # BACKEND: Tests + Coverage
+        # ===============================================
         - script: |
             echo "════════════════════════════════════════"
-            echo "  STEP 1: RUNNING UNIT TESTS"
+            echo "  BACKEND: Installing dependencies"
             echo "════════════════════════════════════════"
-
-            # BACKEND UNIT TESTS
-            echo "-> Backend tests"
             cd backend
             npm ci
-            npm test -- --ci --reporters=default --reporters=jest-junit || BACKEND_RESULT=$?
-            cd ..
+          displayName: "Backend - Install Dependencies"
 
-            # FRONTEND UNIT TESTS (mandatory)
-            echo "-> Frontend tests"
-            cd frontend
-            npm ci
-            # Install jest-junit for test reporting
-            npm install --save-dev jest-junit
-            npm test -- --ci --reporters=default --reporters=jest-junit || FRONTEND_RESULT=$?
-            cd ..
-
-            # Salida si alguno falló
-            if [ -n "$BACKEND_RESULT" ] || [ -n "$FRONTEND_RESULT" ]; then
-              echo "❌ One or more unit tests failed."
-              exit 1
-            fi
-
-            echo "✅ Unit tests completed successfully"
-          displayName: "Execute Unit Tests"
+        - script: |
+            echo "════════════════════════════════════════"
+            echo "  BACKEND: Running tests with coverage"
+            echo "════════════════════════════════════════"
+            cd backend
+            npm test -- --coverage --ci --maxWorkers=2
+          displayName: "Backend - Unit Tests + Coverage"
           env:
             NODE_ENV: 'test'
 
         # Publicar resultados de tests del backend
         - task: PublishTestResults@2
-          displayName: "Publish Backend Unit Test Results"
+          displayName: "Publish Backend Test Results"
           condition: succeededOrFailed()
           inputs:
             testResultsFormat: 'JUnit'
@@ -79,135 +58,142 @@ stages:
             failTaskOnFailedTests: true
             testRunTitle: 'Backend Unit Tests'
 
-        # Publicar resultados de tests del frontend (si existen)
+        # Publicar coverage del backend
+        - task: PublishCodeCoverageResults@1
+          displayName: "Publish Backend Coverage"
+          condition: succeededOrFailed()
+          inputs:
+            codeCoverageTool: 'Cobertura'
+            summaryFileLocation: '$(System.DefaultWorkingDirectory)/backend/coverage/cobertura-coverage.xml'
+            reportDirectory: '$(System.DefaultWorkingDirectory)/backend/coverage'
+            failIfCoverageEmpty: false
+
+        # Verificar threshold del backend (Jest ya falla si no cumple)
+        - script: |
+            echo "════════════════════════════════════════"
+            echo "  BACKEND: Verifying coverage threshold"
+            echo "════════════════════════════════════════"
+            cd backend
+            
+            # Extraer el porcentaje del archivo json-summary
+            if [ -f "coverage/coverage-summary.json" ]; then
+              LINES_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['lines']['pct'])")
+              STATEMENTS_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['statements']['pct'])")
+              FUNCTIONS_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['functions']['pct'])")
+              BRANCHES_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['branches']['pct'])")
+              
+              echo "Lines: ${LINES_PCT}%"
+              echo "Statements: ${STATEMENTS_PCT}%"
+              echo "Functions: ${FUNCTIONS_PCT}%"
+              echo "Branches: ${BRANCHES_PCT}%"
+              
+              # Calcular promedio
+              AVG=$(python3 -c "print(round((${LINES_PCT} + ${STATEMENTS_PCT} + ${FUNCTIONS_PCT} + ${BRANCHES_PCT}) / 4, 2))")
+              echo "Average Coverage: ${AVG}%"
+              
+              # Verificar threshold
+              if (( $(echo "${AVG} < 70" | bc -l) )); then
+                echo "❌ Backend coverage (${AVG}%) is below 70%"
+                exit 1
+              fi
+              
+              echo "✅ Backend coverage (${AVG}%) meets the 70% requirement"
+            else
+              echo "❌ Coverage summary file not found"
+              exit 1
+            fi
+          displayName: "Backend - Verify Coverage Threshold"
+          condition: succeededOrFailed()
+
+        # ===============================================
+        # FRONTEND: Tests + Coverage
+        # ===============================================
+        - script: |
+            echo "════════════════════════════════════════"
+            echo "  FRONTEND: Installing dependencies"
+            echo "════════════════════════════════════════"
+            cd frontend
+            npm ci
+          displayName: "Frontend - Install Dependencies"
+
+        - script: |
+            echo "════════════════════════════════════════"
+            echo "  FRONTEND: Running tests with coverage"
+            echo "════════════════════════════════════════"
+            cd frontend
+            npm test -- --coverage --ci --maxWorkers=2
+          displayName: "Frontend - Unit Tests + Coverage"
+          env:
+            NODE_ENV: 'test'
+
+        # Publicar resultados de tests del frontend
         - task: PublishTestResults@2
-          displayName: "Publish Frontend Unit Test Results"
+          displayName: "Publish Frontend Test Results"
           condition: succeededOrFailed()
           inputs:
             testResultsFormat: 'JUnit'
             testResultsFiles: '**/junit.xml'
             searchFolder: '$(System.DefaultWorkingDirectory)/frontend'
             mergeTestResults: true
-            failTaskOnFailedTests: false
+            failTaskOnFailedTests: true
             testRunTitle: 'Frontend Unit Tests'
 
-        # ---- PASO 2: CODE COVERAGE ----
-        - script: |
-            echo "════════════════════════════════════════"
-            echo "  STEP 2: RUNNING CODE COVERAGE"
-            echo "════════════════════════════════════════"
-
-            # BACKEND COVERAGE
-            echo "-> Backend coverage"
-            cd backend
-            npm run test:coverage -- --ci || true
-            
-            # Verificar cobertura del backend usando Python (disponible en Ubuntu agent)
-            COVERAGE=$(python3 -c "
-            import json
-            try:
-                with open('coverage/coverage-summary.json') as f:
-                    cov = json.load(f)
-                    total = cov['total']
-                    avg = (total['lines']['pct'] + total['statements']['pct'] + total['functions']['pct'] + total['branches']['pct']) / 4
-                    print(f'{avg:.2f}')
-            except:
-                print('0')
-            ")
-            echo "Backend Coverage: ${COVERAGE}%"
-            
-            # Comparar usando Python
-            COVERAGE_CHECK=$(python3 -c "print('fail' if float('${COVERAGE}') < 70 else 'pass')")
-            
-            if [ "$COVERAGE_CHECK" == "fail" ]; then
-              echo "❌ Backend coverage is below 70% (${COVERAGE}%)"
-              exit 1
-            fi
-            
-            echo "✅ Backend coverage is above 70% (${COVERAGE}%)"
-            cd ..
-
-            # FRONTEND COVERAGE (mandatory)
-            echo "-> Frontend coverage"
-            cd frontend
-            npm run test:coverage -- --ci || true
-            
-            # Verificar cobertura del frontend usando Python
-            COVERAGE_FRONT=$(python3 -c "
-            import json
-            try:
-                with open('coverage/coverage-summary.json') as f:
-                    cov = json.load(f)
-                    total = cov['total']
-                    avg = (total['lines']['pct'] + total['statements']['pct'] + total['functions']['pct'] + total['branches']['pct']) / 4
-                    print(f'{avg:.2f}')
-            except:
-                print('0')
-            ")
-            echo "Frontend Coverage: ${COVERAGE_FRONT}%"
-            
-            # Comparar usando Python
-            COVERAGE_FRONT_CHECK=$(python3 -c "print('fail' if float('${COVERAGE_FRONT}') < 70 else 'pass')")
-            
-            if [ "$COVERAGE_FRONT_CHECK" == "fail" ]; then
-              echo "❌ Frontend coverage is below 70% (${COVERAGE_FRONT}%)"
-              exit 1
-            fi
-            
-            echo "✅ Frontend coverage is above 70% (${COVERAGE_FRONT}%)"
-            cd ..
-
-            echo "✅ Coverage analysis completed successfully"
-          displayName: "Execute Coverage Analysis"
-          env:
-            NODE_ENV: 'test'
-
-        # Publicar resultados de cobertura
+        # Publicar coverage del frontend
         - task: PublishCodeCoverageResults@1
-          displayName: "Publish Backend Code Coverage Results"
-          condition: succeededOrFailed()
-          inputs:
-            codeCoverageTool: 'Cobertura'
-            summaryFileLocation: '$(System.DefaultWorkingDirectory)/backend/coverage/cobertura-coverage.xml'
-            failIfCoverageEmpty: false
-
-        # Publicar resultados de cobertura del frontend
-        - task: PublishCodeCoverageResults@1
-          displayName: "Publish Frontend Code Coverage Results"
+          displayName: "Publish Frontend Coverage"
           condition: succeededOrFailed()
           inputs:
             codeCoverageTool: 'Cobertura'
             summaryFileLocation: '$(System.DefaultWorkingDirectory)/frontend/coverage/cobertura-coverage.xml'
+            reportDirectory: '$(System.DefaultWorkingDirectory)/frontend/coverage'
             failIfCoverageEmpty: false
 
-        # ---- PASO 3: BACKEND BUILD ----
+        # Verificar threshold del frontend
         - script: |
             echo "════════════════════════════════════════"
-            echo "  STEP 3: BACKEND BUILD"
+            echo "  FRONTEND: Verifying coverage threshold"
+            echo "════════════════════════════════════════"
+            cd frontend
+            
+            if [ -f "coverage/coverage-summary.json" ]; then
+              LINES_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['lines']['pct'])")
+              STATEMENTS_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['statements']['pct'])")
+              FUNCTIONS_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['functions']['pct'])")
+              BRANCHES_PCT=$(cat coverage/coverage-summary.json | python3 -c "import sys, json; print(json.load(sys.stdin)['total']['branches']['pct'])")
+              
+              echo "Lines: ${LINES_PCT}%"
+              echo "Statements: ${STATEMENTS_PCT}%"
+              echo "Functions: ${FUNCTIONS_PCT}%"
+              echo "Branches: ${BRANCHES_PCT}%"
+              
+              AVG=$(python3 -c "print(round((${LINES_PCT} + ${STATEMENTS_PCT} + ${FUNCTIONS_PCT} + ${BRANCHES_PCT}) / 4, 2))")
+              echo "Average Coverage: ${AVG}%"
+              
+              if (( $(echo "${AVG} < 70" | bc -l) )); then
+                echo "❌ Frontend coverage (${AVG}%) is below 70%"
+                exit 1
+              fi
+              
+              echo "✅ Frontend coverage (${AVG}%) meets the 70% requirement"
+            else
+              echo "❌ Coverage summary file not found"
+              exit 1
+            fi
+          displayName: "Frontend - Verify Coverage Threshold"
+          condition: succeededOrFailed()
+
+        # ===============================================
+        # BUILD Y PREPARAR ARTEFACTOS
+        # ===============================================
+        - script: |
+            echo "════════════════════════════════════════"
+            echo "  BACKEND BUILD"
             echo "════════════════════════════════════════"
             cd backend
-            # npm ci ya se ejecutó en tests, solo build
             npm run build
             echo "✅ Backend build completed"
           displayName: "Build Backend"
 
-        # ---- PASO 4: BUILD FRONTEND ----
-        - script: |
-            echo "════════════════════════════════════════"
-            echo "  STEP 4: FRONTEND BUILD"
-            echo "════════════════════════════════════════"
-            cd frontend
-            # Frontend no requiere build, solo verificación
-            # Instala dependencias solo si existe package.json
-            if [ -f "package.json" ]; then
-              npm ci --if-present
-              npm run build --if-present
-            fi
-            echo "✅ Frontend ready"
-          displayName: "Prepare Frontend"
-
-        # ---- Copiar Frontend al Backend ----
-        # Integra los archivos del frontend dentro del backend para deployment conjunto
         - task: CopyFiles@2
           displayName: 'Copy Frontend to Backend'
           inputs:
@@ -219,43 +205,27 @@ stages:
             TargetFolder: 'backend/frontend'
             OverWrite: true
 
-        # ---- Publicar Backend + Frontend juntos ----
-        # Prepara el paquete final que se deployará
         - script: |
             echo "════════════════════════════════════════"
             echo "  PREPARING PUBLISH PACKAGE"
             echo "════════════════════════════════════════"
             mkdir -p "$(Build.ArtifactStagingDirectory)/publish"
             
-            # Copiar archivos esenciales del backend
             cp backend/index.js "$(Build.ArtifactStagingDirectory)/publish/"
+            cp backend/db.js "$(Build.ArtifactStagingDirectory)/publish/"
             cp backend/package.json "$(Build.ArtifactStagingDirectory)/publish/"
             cp backend/package-lock.json "$(Build.ArtifactStagingDirectory)/publish/"
-            # node_modules necesario para runtime en Azure App Service
             cp -r backend/node_modules "$(Build.ArtifactStagingDirectory)/publish/"
-            
-            # Copiar frontend que ya está integrado dentro de backend
             cp -r backend/frontend "$(Build.ArtifactStagingDirectory)/publish/"
             
-            # Copiar base de datos SQLite si existe
             if [ -f "backend/palabras.db" ]; then
               cp backend/palabras.db "$(Build.ArtifactStagingDirectory)/publish/"
             fi
             
-            # Mostrar estructura final del paquete para debug
-            echo ""
             echo "✅ Package structure:"
             ls -lah "$(Build.ArtifactStagingDirectory)/publish/"
-            echo ""
-            echo "📁 Frontend files:"
-            ls -lah "$(Build.ArtifactStagingDirectory)/publish/frontend/"
-            echo ""
-            echo "📄 Backend index.js (first 5 lines):"
-            head -n 5 "$(Build.ArtifactStagingDirectory)/publish/index.js"
           displayName: "Publish Backend+Frontend"
 
-        # ---- Publicar Artefacto ----
-        # Guarda el paquete como artefacto para las siguientes etapas
         - task: PublishBuildArtifacts@1
           displayName: "Publish Build Artifact"
           inputs:
