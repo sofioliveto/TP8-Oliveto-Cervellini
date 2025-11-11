@@ -18,7 +18,9 @@ module.exports = {
     '!**/coverage/**',
     '!node_modules/**',
     "!**/index.js",
-    '!jest.config.js'
+    '!jest.config.js',
+    '!**/cypress/**',
+    '!cypress.config.js'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'text-summary', 'lcov', 'html', 'json', 'json-summary', 'cobertura'],

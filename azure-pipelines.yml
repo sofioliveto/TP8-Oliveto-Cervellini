@@ -1,5 +1,8 @@
-# TP07 - Coverage y mas!!
-trigger: none
+# TP07 - Coverage, SonarCloud, Deploy to QA and Cypress E2E tests
+trigger:
+  branches:
+    include:
+      - main
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -10,6 +13,9 @@ variables:
   webAppNameQA: 'palabras-qa' 
   webAppNamePROD: 'palabras-prod' 
 
+# =======================================
+# STAGE 1: Build and Test Backend + Frontend
+# =======================================
 stages:
 - stage: BuildAndTest
   displayName: "Build & Test Backend + Frontend"
@@ -221,7 +227,7 @@ stages:
           inputs:
             pollingTimeoutSec: '300'
 
-        # ARCHIVE APPLICATION FILES (como en el pipeline que funciona)
+        # ARCHIVE APPLICATION FILES
         - task: ArchiveFiles@2
           displayName: 'Archive Application Files'
           condition: succeeded()
@@ -243,7 +249,7 @@ stages:
             publishLocation: 'Container'
 
 # =======================================
-# 🌐 DEPLOY QA
+# STAGE 2: Deploy QA and Cypress tests
 # =======================================
 - stage: Deploy_QA
   displayName: "Deploy to QA"
@@ -251,6 +257,9 @@ stages:
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   variables:
   - group: QA-Variables
+    #
+    # JOB 1: Deploy to Azure QA
+    #
   jobs:
     - deployment: DeployToAzureQA
       displayName: 'Deploy to QA'
@@ -309,3 +318,61 @@ stages:
                   echo "✅ Health endpoint is OK: $url"
                 displayName: 'Wait for /health (QA)'
                 condition: succeeded()
+
+    #
+    # JOB 2: Cypress Integration Tests
+    #
+    - job: CypressIntegrationTests
+      displayName: 'Cypress Integration Tests'
+      dependsOn: DeployToAzureQA
+      condition: succeeded()
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - checkout: self
+          fetchDepth: 0
+
+        - task: NodeTool@0
+          displayName: 'Install Node.js $(nodeVersion)'
+          inputs:
+            versionSpec: $(nodeVersion)
+
+        - script: |
+            echo "📦 Installing Cypress + E2E dependencies"
+            npm ci
+            npm install --save-dev cypress wait-on @faker-js/faker
+            npx cypress install || true
+          displayName: 'Install Cypress + project deps'
+
+        - script: |
+            echo "🌐 Esperando a que la app QA esté online..."
+            URL="https://palabras-qa-gebud8fdgxejeyen.brazilsouth-01.azurewebsites.net"
+            npx wait-on "$URL"
+          displayName: 'Wait for deployed QA app to be ready'
+
+        - script: |
+            echo "=== Running Cypress E2E Tests ==="
+            cd $(System.DefaultWorkingDirectory)
+            ls -la
+            npx cypress run \
+              --browser chromium --headless \
+              --reporter junit \
+              --reporter-options "mochaFile=cypress/results/junit-[hash].xml,toConsole=true" \
+              --config-file cypress.config.js \
+              --config baseUrl=https://palabras-qa-gebud8fdgxejeyen.brazilsouth-01.azurewebsites.net,pageLoadTimeout=120000,defaultCommandTimeout=15000
+          displayName: 'Run Cypress E2E Tests'
+          env:
+            NODE_ENV: test
+            CI: true
+
+        - task: PublishTestResults@2
+          displayName: 'Publish Cypress E2E Test Results'
+          condition: succeededOrFailed()
+          inputs:
+            testResultsFormat: 'JUnit'
+            testResultsFiles: 'cypress/results/*.xml'
+            searchFolder: '$(System.DefaultWorkingDirectory)'
+            mergeTestResults: true
+            failTaskOnFailedTests: true
+            testRunTitle: 'Cypress E2E Tests - $(Build.BuildNumber)'
+            publishRunAttachments: true
