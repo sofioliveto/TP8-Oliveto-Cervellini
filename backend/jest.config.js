@@ -14,7 +14,7 @@ module.exports = {
     '!jest.config.js'
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'text-summary', 'lcov', 'html', 'json', 'json-summary'],
+  coverageReporters: ['text', 'text-summary', 'lcov', 'html', 'json', 'json-summary', 'cobertura'],
   // Define los umbrales mínimos de coverage
   coverageThreshold: {
     global: {

@@ -21,7 +21,7 @@ module.exports = {
     '!jest.config.js'
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'text-summary', 'lcov', 'html', 'json', 'json-summary'],
+  coverageReporters: ['text', 'text-summary', 'lcov', 'html', 'json', 'json-summary', 'cobertura'],
   coverageThreshold: {
     global: {
       branches: 70,
