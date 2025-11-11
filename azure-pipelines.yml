@@ -221,34 +221,27 @@ stages:
           inputs:
             pollingTimeoutSec: '300'
 
-        - script: |
-            echo "════════════════════════════════════════"
-            echo "  PREPARING PUBLISH PACKAGE"
-            echo "════════════════════════════════════════"
-            mkdir -p "$(Build.ArtifactStagingDirectory)/publish"
-            
-            cp backend/index.js "$(Build.ArtifactStagingDirectory)/publish/"
-            cp backend/db.js "$(Build.ArtifactStagingDirectory)/publish/"
-            cp backend/package.json "$(Build.ArtifactStagingDirectory)/publish/"
-            cp backend/package-lock.json "$(Build.ArtifactStagingDirectory)/publish/"
-            cp -r backend/node_modules "$(Build.ArtifactStagingDirectory)/publish/"
-            cp -r backend/frontend "$(Build.ArtifactStagingDirectory)/publish/"
-            
-            if [ -f "backend/palabras.db" ]; then
-              cp backend/palabras.db "$(Build.ArtifactStagingDirectory)/publish/"
-            fi
-            
-            echo "✅ Package structure:"
-            ls -lah "$(Build.ArtifactStagingDirectory)/publish/"
-          displayName: "Publish Backend+Frontend"
-
-        - task: PublishBuildArtifacts@1
-          displayName: "Publish Build Artifact"
+        # ARCHIVE APPLICATION FILES (como en el pipeline que funciona)
+        - task: ArchiveFiles@2
+          displayName: 'Archive Application Files'
+          condition: succeeded()
           inputs:
-            PathtoPublish: "$(Build.ArtifactStagingDirectory)/publish"
-            ArtifactName: "drop"
+            rootFolderOrFile: '$(System.DefaultWorkingDirectory)/backend'
+            includeRootFolder: false
+            archiveType: 'zip'
+            archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+            replaceExistingArchive: true
+            verbose: true
+
+        # PUBLISH BUILD ARTIFACTS
+        - task: PublishBuildArtifacts@1
+          displayName: 'Publish Application Artifact'
+          condition: succeeded()
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+            ArtifactName: 'drop'
             publishLocation: 'Container'
-            
+
 # =======================================
 # 🌐 DEPLOY QA
 # =======================================
@@ -256,21 +249,23 @@ stages:
   displayName: "Deploy to QA"
   dependsOn: BuildAndTest
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  # Importar variables de QA
   variables:
   - group: QA-Variables
   jobs:
-    - deployment: DeployQA
-      displayName: "Desplegar QA"
-      environment: "QA"
+    - deployment: DeployToAzureQA
+      displayName: 'Deploy to QA'
+      environment: 'QA'
       strategy:
         runOnce:
           deploy:
             steps:
-              - checkout: self
-              
-              - download: current
-                artifact: drop
+              - task: DownloadBuildArtifacts@1
+                displayName: 'Download Artifacts'
+                inputs:
+                  buildType: 'current'
+                  downloadType: 'single'
+                  artifactName: 'drop'
+                  downloadPath: '$(System.ArtifactsDirectory)'
 
               # Configurar variables de entorno
               - task: AzureAppServiceSettings@1
@@ -287,19 +282,30 @@ stages:
                     ]
 
               - task: AzureWebApp@1
-                displayName: "Deploy Backend+Frontend QA"
+                displayName: 'Deploy to QA'
                 inputs:
-                  azureSubscription: "$(azureSubscription)"
+                  azureSubscription: '$(azureSubscription)'
                   appType: 'webAppLinux'
-                  appName: "$(webAppNameQA)"
-                  package: "$(Pipeline.Workspace)/drop"
+                  appName: '$(webAppNameQA)'
+                  package: '$(System.ArtifactsDirectory)/drop/$(Build.BuildId).zip'
                   runtimeStack: 'NODE|20-lts'
                   startUpCommand: 'node index.js'
 
               - script: |
-                  echo "⏳ Esperando 30 segundos..."
-                  sleep 30
-                  echo "🔍 Verificando QA: $(ENVIRONMENT_NAME)"
-                  curl -f https://palabras-qa-gebud8fdgxejeyen.brazilsouth-01.azurewebsites.net/health || echo "⚠️ Health check pending"
-                displayName: "Health Check QA"
-                continueOnError: true
+                  echo "Waiting for health endpoint to respond..."
+                  url="https://palabras-qa-gebud8fdgxejeyen.brazilsouth-01.azurewebsites.net/health"
+                  timeout=120
+                  interval=5
+                  elapsed=0
+                  until curl -sSf "$url" > /dev/null; do
+                    sleep $interval
+                    elapsed=$((elapsed + interval))
+                    echo "Waiting... ${elapsed}s elapsed"
+                    if [ $elapsed -ge $timeout ]; then
+                      echo "Health check timed out after ${timeout}s"
+                      exit 1
+                    fi
+                  done
+                  echo "✅ Health endpoint is OK: $url"
+                displayName: 'Wait for /health (QA)'
+                condition: succeeded()
