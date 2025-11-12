@@ -14,28 +14,14 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: function(origin, callback) {
-    const allowedOrigins = [
-      // URLs locales
-      'http://localhost:3000',
-      'http://localhost:8080',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:8080',
-      // URLs de QA en Render
-      'https://tp8-frontend-qa.onrender.com',
-      // URLs de Producción en Render
-      'https://tp8-frontend-prod.onrender.com',
-      'https://tp8-frontend-prod-zpfc.onrender.com'
-    ];
-    
-    // Permitir origins explícitos o cualquier origen de Render que contenga tp8-frontend
-    if (!origin || allowedOrigins.includes(origin) || 
-        (origin.includes('onrender.com') && origin.includes('tp8-frontend'))) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'https://tp8-frontend-qa.onrender.com',
+    'https://tp8-frontend-prod-8nss.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

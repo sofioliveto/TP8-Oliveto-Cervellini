@@ -1,12 +1,29 @@
+// Configuración de APIs por ambiente
+const API_CONFIGS = {
+    // URLs de tus backends en Render
+    qa: 'https://tp8-backend-qa.onrender.com',
+    prod: 'https://tp8-backend-prod-vbva.onrender.com',
+    local: 'http://localhost:3000'
+};
+
+// Determinar la URL de la API según el entorno
 function getApiUrl() {
-    if (typeof window !== 'undefined' && window.location) {
-        if (window.location.hostname.includes('prod')) {
-            return 'https://tp8-backend-prod-oue0.onrender.com/api';  
-        } else if (window.location.hostname.includes('qa')) {
-            return 'https://tp8-backend-qa.onrender.com/api';
-        }
+    const hostname = window.location.hostname;
+    
+    // Desarrollo local
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return API_CONFIGS.local + '/api';
     }
-    return 'http://localhost:3000/api';
+    
+    // Detectar ambiente por URL del frontend
+    if (hostname.includes('tp8-frontend-qa')) {
+        return API_CONFIGS.qa + '/api';
+    } else if (hostname.includes('tp8-frontend-prod')) {
+        return API_CONFIGS.prod + '/api';
+    }
+    
+    // Fallback: usar el mismo origen (por si acaso)
+    return window.location.origin + '/api';
 }
 
 const API_URL = getApiUrl();
