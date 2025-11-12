@@ -1,23 +1,30 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
-// Puerto dinámico de Azure
+// Puerto dinámico
 const PORT = process.env.PORT || 3000;
 
 // Leer variables de entorno
 const ENV_NAME = process.env.ENVIRONMENT_NAME || 'development';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// ✅ CREAR LA APP (sin ejecutar listen todavía)
+// ✅ CREAR LA APP
 const app = express();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-
-// Servir archivos estáticos del frontend
-app.use(express.static(path.join(__dirname, 'frontend')));
+app.use(cors({
+  origin: [
+    'https://tp8-frontend-qa.onrender.com',
+    'https://tp8-frontend-prod.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Importar la base de datos
 const db = require('./db');
@@ -68,7 +75,7 @@ app.delete('/api/palabras/:id', (req, res) => {
       console.error('❌ Error:', err.message);
       res.status(500).json({ error: err.message });
     } else if (this.changes === 0) {
-    res.status(404).json({ error: 'Palabra no encontrada' });
+      res.status(404).json({ error: 'Palabra no encontrada' });
     } else {
       console.log(`✅ Palabra eliminada - ID: ${id}`);
       res.json({ mensaje: 'Palabra eliminada exitosamente' });
@@ -88,9 +95,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Catch-all
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+// Root endpoint para API
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'API Palabras - Backend Only',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      palabras: '/api/palabras'
+    }
+  });
 });
 
 // ✅ EXPORTAR LA APP (para tests)
@@ -100,10 +114,10 @@ module.exports = app;
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log('════════════════════════════════════════');
-    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+    console.log(`🚀 API Server corriendo en puerto ${PORT}`);
     console.log(`📍 Environment: ${ENV_NAME} (NODE_ENV: ${NODE_ENV})`);
-    console.log(`📁 Serving frontend from: ${path.join(__dirname, 'frontend')}`);
-    console.log(`🌐 Listening on 0.0.0.0:${PORT}`);
+    console.log(`🔗 Health check: http://0.0.0.0:${PORT}/health`);
+    console.log(`📡 API endpoints: http://0.0.0.0:${PORT}/api/palabras`);
     console.log('════════════════════════════════════════');
   });
 }
