@@ -58,7 +58,7 @@ app.post('/api/palabras', (req, res) => {
       res.status(500).json({ error: err.message });
     } else {
       console.log(`✅ Palabra agregada - ID: ${this.lastID}`);
-      res.json({ 
+      res.status(201).json({ 
         id: this.lastID, 
         palabra: palabra,
         mensaje: 'Palabra agregada exitosamente' 
