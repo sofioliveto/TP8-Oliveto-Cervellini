@@ -116,7 +116,7 @@ jobs:
     name: Deploy to QA
     needs: docker-build-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main'
     environment:
       name: qa
       url: ${{ vars.URL_FRONTEND_QA }}
@@ -135,7 +135,7 @@ jobs:
           echo "✅ Frontend QA deployment triggered"
         
       - name: Wait for deployment
-        run: sleep 60
+        run: sleep 30
 
       - name: Health check QA Backend
         run: |
@@ -185,7 +185,7 @@ jobs:
           echo "✅ Frontend PROD deployment triggered"
         
       - name: Wait for deployment
-        run: sleep 90
+        run: sleep 30
 
       - name: Health check Production Backend
         run: |
