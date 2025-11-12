@@ -28,6 +28,9 @@ RUN cd /usr/share/nginx/html && \
 # Configuración de nginx para SPA
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Verificar que los archivos se copiaron correctamente
+RUN ls -la /usr/share/nginx/html/
+
 # Exponer puerto 80
 EXPOSE 80
 
