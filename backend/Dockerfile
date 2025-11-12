@@ -1,48 +1,29 @@
-# Multi-stage build para optimizar el tamaño final
-FROM node:18-alpine AS build
+# Multi-stage build para optimizar tamaño
+FROM node:18-alpine AS builder
 
-# Establecer directorio de trabajo
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
 COPY package*.json ./
+RUN npm ci --only=production
 
-# Instalar dependencias (incluyendo devDependencies para tests)
-RUN npm ci
+# Stage final
+FROM node:18-alpine
 
-# Copiar el resto de archivos
+WORKDIR /app
+
+# Copiar dependencias desde builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copiar código de la aplicación
 COPY . .
 
-# Stage final para producción
-FROM node:18-alpine AS production
+# Crear directorio para base de datos
+RUN mkdir -p /app/data
 
-# Crear usuario no-root para seguridad
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S backend -u 1001
-
-# Establecer directorio de trabajo
-WORKDIR /app
-
-# Copiar package.json y package-lock.json
-COPY package*.json ./
-
-# Instalar solo dependencias de producción
-RUN npm ci --only=production && npm cache clean --force
-
-# Copiar archivos de aplicación desde el stage de build
-COPY --from=build /app/*.js ./
-COPY --from=build /app/*.db ./
-
-# Cambiar ownership al usuario backend del grupo nodejs
-RUN chown -R backend:nodejs /app
-USER backend
-
-# Exponer puerto 3000 (ajusta según tu aplicación)
 EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Comando por defecto
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
