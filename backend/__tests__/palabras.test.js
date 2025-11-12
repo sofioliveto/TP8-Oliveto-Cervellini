@@ -44,9 +44,7 @@ describe('Palabras API', () => {
         test('debería crear una nueva palabra', async () => {
             const nuevaPalabra = { palabra: 'gato' };
             
-            // ✅ FIX: Mock correcto de db.run
             db.run.mockImplementation(function(query, params, callback) {
-                // Simular this.lastID = 3
                 callback.call({ lastID: 3 }, null);
             });
 
@@ -54,7 +52,7 @@ describe('Palabras API', () => {
                 .post('/api/palabras')
                 .send(nuevaPalabra);
 
-            expect(response.status).toBe(200);
+            expect(response.status).toBe(201);
             expect(response.body).toHaveProperty('id', 3);
             expect(response.body.palabra).toBe('gato');
             expect(db.run).toHaveBeenCalledTimes(1);
@@ -67,6 +65,7 @@ describe('Palabras API', () => {
 
             expect(response.status).toBe(400);
             expect(response.body).toHaveProperty('error');
+            expect(db.run).not.toHaveBeenCalled();
         });
 
         test('debería validar que el campo palabra exista', async () => {
@@ -76,6 +75,7 @@ describe('Palabras API', () => {
 
             expect(response.status).toBe(400);
             expect(response.body).toHaveProperty('error');
+            expect(db.run).not.toHaveBeenCalled();
         });
     });
 
