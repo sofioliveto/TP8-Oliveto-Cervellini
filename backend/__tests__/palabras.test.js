@@ -6,14 +6,12 @@ const db = require('../db');
 jest.mock('../db');
 
 describe('Palabras API', () => {
-    // Limpiar mocks antes de cada test
     beforeEach(() => {
         jest.clearAllMocks();
     });
 
     describe('GET /api/palabras', () => {
         test('debería devolver todas las palabras', async () => {
-            // Arrange: configurar el mock
             const mockPalabras = [
                 { id: 1, palabra: 'casa' },
                 { id: 2, palabra: 'perro' }
@@ -23,17 +21,14 @@ describe('Palabras API', () => {
                 callback(null, mockPalabras);
             });
 
-            // Act: hacer la petición
             const response = await request(app).get('/api/palabras');
 
-            // Assert: verificar resultados
             expect(response.status).toBe(200);
             expect(response.body).toEqual(mockPalabras);
             expect(db.all).toHaveBeenCalledTimes(1);
         });
 
         test('debería manejar errores de la BD', async () => {
-            // Simular error de base de datos
             db.all.mockImplementation((query, callback) => {
                 callback(new Error('Database error'), null);
             });
@@ -49,7 +44,9 @@ describe('Palabras API', () => {
         test('debería crear una nueva palabra', async () => {
             const nuevaPalabra = { palabra: 'gato' };
             
-            db.run.mockImplementation((query, params, callback) => {
+            // ✅ FIX: Mock correcto de db.run
+            db.run.mockImplementation(function(query, params, callback) {
+                // Simular this.lastID = 3
                 callback.call({ lastID: 3 }, null);
             });
 
@@ -66,23 +63,25 @@ describe('Palabras API', () => {
         test('debería validar que la palabra no esté vacía', async () => {
             const response = await request(app)
                 .post('/api/palabras')
-                .send({ palabra: '' }); // palabra vacía
+                .send({ palabra: '' });
 
             expect(response.status).toBe(400);
+            expect(response.body).toHaveProperty('error');
         });
 
         test('debería validar que el campo palabra exista', async () => {
             const response = await request(app)
                 .post('/api/palabras')
-                .send({}); // sin campo palabra
+                .send({});
 
             expect(response.status).toBe(400);
+            expect(response.body).toHaveProperty('error');
         });
     });
 
     describe('DELETE /api/palabras/:id', () => {
         test('debería eliminar una palabra', async () => {
-            db.run.mockImplementation((query, params, callback) => {
+            db.run.mockImplementation(function(query, params, callback) {
                 callback.call({ changes: 1 }, null);
             });
 
@@ -93,7 +92,7 @@ describe('Palabras API', () => {
         });
 
         test('debería retornar 404 si la palabra no existe', async () => {
-            db.run.mockImplementation((query, params, callback) => {
+            db.run.mockImplementation(function(query, params, callback) {
                 callback.call({ changes: 0 }, null);
             });
 

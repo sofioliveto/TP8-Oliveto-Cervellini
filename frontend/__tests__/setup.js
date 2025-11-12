@@ -10,7 +10,7 @@ document.body.innerHTML = `
 
 // Mock de window.location - Configuración completa
 delete window.location;
-window.location = new URL('http://localhost');
+window.location = new URL('http://localhost:3000');
 
 // Mock de console.error para tests más limpios
 global.console.error = jest.fn();
