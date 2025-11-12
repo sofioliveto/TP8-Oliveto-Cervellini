@@ -12,6 +12,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
 
 // Middleware
+app.use(express.json());
 app.use(cors({
   origin: [
     'https://tp8-frontend-qa.onrender.com',
@@ -57,7 +58,7 @@ app.post('/api/palabras', (req, res) => {
       res.status(500).json({ error: err.message });
     } else {
       console.log(`✅ Palabra agregada - ID: ${this.lastID}`);
-      res.json({ 
+      res.status(201).json({ 
         id: this.lastID, 
         palabra: palabra,
         mensaje: 'Palabra agregada exitosamente' 
