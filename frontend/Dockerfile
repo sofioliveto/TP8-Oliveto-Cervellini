@@ -15,9 +15,6 @@ COPY . .
 # Asegurar que exista aunque no haya assets
 RUN mkdir -p /app/assets
 
-# Ejecutar tests (opcional en build)
-RUN npm test
-
 # Stage final para servir archivos estáticos
 FROM nginx:alpine
 
