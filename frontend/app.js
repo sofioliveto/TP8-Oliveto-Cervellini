@@ -1,16 +1,7 @@
-// Configuración de APIs por ambiente
-const API_CONFIGS = {
-    // URLs de tus backends en Render
-    qa: 'https://tp8-backend-qa.onrender.com',
-    prod: 'https://tp8-backend-prod.onrender.com',
-    local: 'http://localhost:3000'
-};
-
-// Función para obtener la URL del API según el entorno
 function getApiUrl() {
     if (typeof window !== 'undefined' && window.location) {
         if (window.location.hostname.includes('prod')) {
-            return 'https://tp8-backend-prod-oue0.onrender.com';
+            return 'https://tp8-backend-prod-oue0.onrender.com/api';  // ✅ Agregar /api
         } else if (window.location.hostname.includes('qa')) {
             return 'https://tp8-backend-qa.onrender.com/api';
         }

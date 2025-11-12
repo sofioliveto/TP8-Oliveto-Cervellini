@@ -14,14 +14,22 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: [
-    'https://tp8-frontend-qa.onrender.com',
-    'https://tp8-frontend-prod-zpfc.onrender.com',  // ⬅️ Asegúrate de que esté esta URL
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:8080'
-  ],
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:8080',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:8080'
+    ];
+    
+    // Permitir cualquier origen de Render que contenga tp8-frontend
+    if (!origin || allowedOrigins.includes(origin) || 
+        (origin.includes('onrender.com') && origin.includes('tp8-frontend'))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
