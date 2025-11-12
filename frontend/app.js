@@ -6,12 +6,19 @@ const API_CONFIGS = {
     local: 'http://localhost:3000'
 };
 
-// Configuración de la URL del backend según el entorno
-const API_URL = window.location.hostname.includes('prod') 
-    ? 'https://tp8-backend-prod.onrender.com/api'  // URL del backend de producción
-    : window.location.hostname.includes('qa')
-    ? 'https://tp8-backend-qa.onrender.com/api'    // URL del backend de QA
-    : 'http://localhost:3000/api';                  // URL local para desarrollo
+// Función para obtener la URL del API según el entorno
+function getApiUrl() {
+    if (typeof window !== 'undefined' && window.location) {
+        if (window.location.hostname.includes('prod')) {
+            return 'https://tp8-backend-prod-oue0.onrender.com';
+        } else if (window.location.hostname.includes('qa')) {
+            return 'https://tp8-backend-qa.onrender.com/api';
+        }
+    }
+    return 'http://localhost:3000/api';
+}
+
+const API_URL = getApiUrl();
 
 // Debug: mostrar configuración en consola
 console.log('🔧 Frontend Config:', {
