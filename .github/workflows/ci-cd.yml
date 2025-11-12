@@ -1,115 +1,223 @@
-name: CI/CD Pipeline
+name: CI/CD - Build, Push & Deploy
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  release:
-    types: [ published ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_FRONTEND: ${{ github.repository }}-frontend
-  IMAGE_NAME_BACKEND: ${{ github.repository }}-backend
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/tp8-palabras-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/tp8-palabras-frontend
 
 jobs:
-  # Job 1: Tests
-  test:
-    name: Run Tests
+  # =======================================
+  # 🧱 BUILD & TEST
+  # =======================================
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        component: [frontend, backend]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: ${{ matrix.component }}/package-lock.json
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
-    - name: Install dependencies
-      run: |
-        cd ${{ matrix.component }}
-        npm ci
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm ci
 
-    - name: Run tests
-      run: |
-        cd ${{ matrix.component }}
-        npm test
+      - name: Run Backend Tests
+        run: |
+          cd backend
+          npm test
 
-    - name: Upload coverage reports
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-${{ matrix.component }}
-        path: ${{ matrix.component }}/coverage/
-        retention-days: 30
-
-  # Job 2: Build and Push Docker Images
-  build-and-push:
-    name: Build and Push Images
+  # =======================================
+  # 🐳 BUILD & PUSH DOCKER IMAGES
+  # =======================================
+  docker-build-push:
+    name: Build & Push Docker Images
+    needs: build-and-test
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push'
     
-    strategy:
-      matrix:
-        component: [frontend, backend]
-    
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.component }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      # ===== BACKEND IMAGE =====
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_BACKEND }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: ./${{ matrix.component }}
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64,linux/arm64
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-    - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@v1
-      with:
-        subject-name: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.component }}
-        subject-digest: ${{ steps.build.outputs.digest }}
-        push-to-registry: true
+      # ===== FRONTEND IMAGE =====
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_FRONTEND }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # =======================================
+  # 🌐 DEPLOY TO QA
+  # =======================================
+  deploy-qa:
+    name: Deploy to QA
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: qa
+      url: ${{ vars.URL_FRONTEND_QA }}
+    
+    steps:
+      - name: Deploy Backend to QA
+        run: |
+          echo "🚀 Deploying Backend to QA..."
+          curl -X POST "${{ secrets.RENDER_BACKEND_QA_DEPLOY_HOOK }}"
+          echo "✅ Backend QA deployment triggered"
+      
+      - name: Deploy Frontend to QA
+        run: |
+          echo "🚀 Deploying Frontend to QA..."
+          curl -X POST "${{ secrets.RENDER_FRONTEND_QA_DEPLOY_HOOK }}"
+          echo "✅ Frontend QA deployment triggered"
+        
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health check QA Backend
+        run: |
+          echo "🔍 Checking QA Backend at ${{ vars.URL_BACKEND_QA }}"
+          for i in {1..5}; do
+            if curl -f ${{ vars.URL_BACKEND_QA }}/health; then
+              echo "✅ QA Backend is healthy"
+              break
+            fi
+            echo "⏳ Waiting... attempt $i/5"
+            sleep 10
+          done
+
+      - name: Health check QA Frontend
+        run: |
+          echo "🔍 Checking QA Frontend at ${{ vars.URL_FRONTEND_QA }}"
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.URL_FRONTEND_QA }} || echo "000")
+          if [ $response -eq 200 ]; then
+            echo "✅ QA Frontend is accessible"
+          else
+            echo "⚠️ QA Frontend returned: $response"
+          fi
+
+  # =======================================
+  # 🚀 DEPLOY TO PRODUCTION
+  # =======================================
+  deploy-prod:
+    name: Deploy to Production
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: ${{ vars.URL_FRONTEND_PROD }}
+    
+    steps:
+      - name: Deploy Backend to Production
+        run: |
+          echo "🚀 Deploying Backend to Production..."
+          curl -X POST "${{ secrets.RENDER_BACKEND_PROD_DEPLOY_HOOK }}"
+          echo "✅ Backend PROD deployment triggered"
+      
+      - name: Deploy Frontend to Production
+        run: |
+          echo "🚀 Deploying Frontend to Production..."
+          curl -X POST "${{ secrets.RENDER_FRONTEND_PROD_DEPLOY_HOOK }}"
+          echo "✅ Frontend PROD deployment triggered"
+        
+      - name: Wait for deployment
+        run: sleep 90
+
+      - name: Health check Production Backend
+        run: |
+          echo "🔍 Checking PROD Backend at ${{ vars.URL_BACKEND_PROD }}"
+          for i in {1..5}; do
+            if curl -f ${{ vars.URL_BACKEND_PROD }}/health; then
+              echo "✅ PROD Backend is healthy"
+              break
+            fi
+            echo "⏳ Waiting... attempt $i/5"
+            sleep 10
+          done
+
+      - name: Health check Production Frontend
+        run: |
+          echo "🔍 Checking PROD Frontend at ${{ vars.URL_FRONTEND_PROD }}"
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.URL_FRONTEND_PROD }} || echo "000")
+          if [ $response -eq 200 ]; then
+            echo "✅ PROD Frontend is accessible"
+          else
+            echo "⚠️ PROD Frontend returned: $response"
+          fi
+
+      - name: Create release tag
+        run: |
+          VERSION="v$(date +'%Y%m%d')-${GITHUB_SHA::8}"
+          echo "📌 Release: ${VERSION}"
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🎉 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Production URLs:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ vars.URL_FRONTEND_PROD }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: ${{ vars.URL_BACKEND_PROD }}" >> $GITHUB_STEP_SUMMARY
