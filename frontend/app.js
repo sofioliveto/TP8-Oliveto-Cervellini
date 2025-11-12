@@ -1,7 +1,7 @@
 function getApiUrl() {
     if (typeof window !== 'undefined' && window.location) {
         if (window.location.hostname.includes('prod')) {
-            return 'https://tp8-backend-prod-oue0.onrender.com/api';  // ✅ Agregar /api
+            return 'https://tp8-backend-prod-oue0.onrender.com/api';  
         } else if (window.location.hostname.includes('qa')) {
             return 'https://tp8-backend-qa.onrender.com/api';
         }
@@ -10,14 +10,6 @@ function getApiUrl() {
 }
 
 const API_URL = getApiUrl();
-
-// Debug: mostrar configuración en consola
-console.log('🔧 Frontend Config:', {
-    hostname: window.location.hostname,
-    apiUrl: API_URL,
-    environment: window.location.hostname.includes('qa') ? 'QA' : 
-                window.location.hostname.includes('prod') ? 'PROD' : 'LOCAL'
-});
 
 // Cargar palabras al inicio
 document.addEventListener('DOMContentLoaded', function() {
