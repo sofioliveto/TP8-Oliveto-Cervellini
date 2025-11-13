@@ -13,8 +13,8 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_FRONTEND: ${{ github.repository }}-frontend
-  IMAGE_NAME_BACKEND: ${{ github.repository }}-backend
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/tp8-oliveto-cervellini-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/tp8-oliveto-cervellini-frontend
 
 jobs:
   # =======================================
