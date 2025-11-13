@@ -1,26 +1,25 @@
-# README.md - TP 6: Tests unitarios
+# TP8 – Contenedores en la Nube  
+## Alumnas: Oliveto – Cervellini
 
-## Instalación
-1. Clona el repositorio:
-  ```bash
-  git clone (url del repo)
-  cd (al repo local)
-  ```
-2. Instala las dependencias:
-  ```bash
-  cd backend
-  npm install
-  cd ..
-  cd frontend
-  npm install
-  ```
+Este repositorio contiene el Trabajo Práctico Real de la materia, donde implementamos una arquitectura completa basada en contenedores para desplegar nuestra aplicación en ambientes **QA** y **PROD**, utilizando herramientas y servicios 100% gratuitos.
 
-## Ejecutar tests
-Ejecuta los tests con el siguiente comando:
-```bash
-cd backend
-npm test
-cd ..
-cd frontentd
-npm test
-```
+---
+
+# 🚀 Objetivo del TP
+
+El objetivo principal es demostrar el uso real de:
+
+- Contenedores Docker  
+- Container Registry  
+- Deploy en la nube  
+- CI/CD automatizado  
+- Segregación de ambientes (QA vs PROD)  
+
+Nuestra aplicación está compuesta por:
+
+- **Backend:** Node.js + Express + SQLite  
+- **Frontend:** HTML, CSS y JavaScript  
+- **Contenedores:** Docker  
+- **Registry:** GitHub Container Registry (GHCR)  
+- **Hosting:** Render.com  
+- **Automatización:** GitHub Actions  
