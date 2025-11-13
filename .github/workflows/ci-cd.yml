@@ -13,8 +13,8 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/tp8-palabras-backend
-  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/tp8-palabras-frontend
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}-frontend
+  IMAGE_NAME_BACKEND: ${{ github.repository }}-backend
 
 jobs:
   # =======================================
