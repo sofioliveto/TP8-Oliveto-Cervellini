@@ -1,305 +1,159 @@
-# TP 7: Implementación de Code Coverage, Análisis Estático y Testing de Integración
+# TP8 – Contenedores en la Nube
+## Decisiones Arquitectónicas y Técnicas  
 
-## Tabla de Contenidos
-1. [Justificación Tecnológica](#justificación-tecnológica)
-2. [Implementación de Code Coverage](#implementación-de-code-coverage)
-3. [Análisis Estático con SonarCloud](#análisis-estático-con-sonarcloud)
-4. [Pruebas de Integración con Cypress](#pruebas-de-integración-con-cypress)
-5. [Configuración del Pipeline CI/CD](#configuración-del-pipeline-cicd)
-6. [Reflexión Personal](#reflexión-personal)
+Este documento resume las decisiones arquitectónicas, tecnológicas e implementaciones realizadas para el TP de Contenedores en la Nube
 
 ---
 
-## Justificación Tecnológica
+# 1. Stack Tecnológico Elegido
 
-### Stack Elegido
+- **Container Registry:** GitHub Container Registry (GHCR – `ghcr.io`)
+- **Hosting QA:** Render.com (free tier)
+- **Hosting PROD:** Render.com (free tier, con una configuración distinta)
+- **CI/CD:** GitHub Actions
+- **Base de datos:** SQLite (embebida, incluida dentro del backend)
 
-Para este trabajo práctico se utilizó el siguiente stack tecnológico:
-
-#### Backend
-- **Node.js 20.x**: Runtime de JavaScript del lado del servidor, versión LTS con soporte extendido
-- **Express.js**: Framework web minimalista y flexible para Node.js
-- **SQLite**: Base de datos relacional embebida, ideal para desarrollo y ambientes de prueba
-- **Jest**: Framework de testing para JavaScript con soporte nativo de coverage
-
-#### Frontend
-- **HTML5/CSS3/JavaScript**: Stack web estándar sin frameworks adicionales
-
-#### Testing y Calidad
-- **Jest**: Testing unitario para backend y frontend
-- **Cypress**: Testing end-to-end para pruebas de integración
-- **SonarCloud**: Análisis estático de código y detección de code smells
-- **Azure DevOps**: CI/CD pipeline con stages automatizados
-
-### Razones de la Elección
-
-1. **Simplicidad y Aprendizaje**: El stack elegido permite enfocarse en los conceptos de testing y CI/CD sin la complejidad adicional de frameworks modernos (React, Angular, etc.)
-
-2. **Compatibilidad con Azure**: Node.js tiene excelente soporte en Azure App Service con deployment directo
-
-3. **Ecosistema de Testing Maduro**: Jest y Cypress son herramientas industry-standard con documentación extensa y comunidad activa
-
-4. **Integración Continua**: Todas las herramientas se integran nativamente con Azure DevOps Pipelines que es lo que venimos usando para el resto de nuestros TPs
+**Motivo del stack:**  
+Elegimos un stack gratuito, integrado con GitHub y simple de configurar, cumpliendo con todos los requisitos del TP.
 
 ---
 
-## Implementación de Code Coverage
+# 2. Proceso Cronológico de Construcción del TP
 
-### 1. Configuración de Jest para Coverage
-
-El primer paso fue configurar Jest para generar reportes de cobertura de código. Se modificó `jest.config.js` tanto para backend como frontend:
-
-**Opciones Clave de Configuración:**
-
-| Opción | Descripción |
-|--------|-------------|
-| `collectCoverageFrom` | Define qué archivos analizar (excluye tests, node_modules, etc.) |
-| `coverageDirectory` | Directorio donde se guardan los reportes (`coverage/`) |
-| `coverageReporters` | Formatos de salida: `text`, `html`, `lcov`, `cobertura`, `json-summary` |
-| `coverageThreshold` | Umbrales mínimos: 70% para lines, statements, functions, branches |
-
-
-### 2. Análisis de Cobertura Inicial vs. Final
-
-#### Backend - Cobertura
-Al ejecutar `npm test -- --coverage` por primera vez, obtuvimos:
-
-![alt text](images/image2.png)
-
-
-#### Frontend - Cobertura Inicial
-El frontend mostró cobertura deficiente en funciones:
-![alt text](images/image3.png)
-
-**Problemas:**
-- ❌ Functions coverage: 62.50% (5/8 funciones)
-- Funciones `eliminarPalabra` y manejo de errores sin tests
-
-
-#### Frontend - Cobertura Final
-Se implementaron tests adicionales para `eliminarPalabra` y validaciones.
-
-**Mejoras:**
-- ✅ Functions: 62.50% → 75% (+12.5%)
-- ✅ Cumple threshold de 70% en todas las métricas
-
-![alt text](images/image4.png)
-
-### 3. Visualización de Coverage
-
-Los reportes HTML de Jest permiten ver línea por línea qué código está cubierto:
-
-- **Verde**: Líneas ejecutadas por los tests
-- **Rojo**: Líneas sin cobertura
-- **Amarillo**: Branches parcialmente cubiertos
-
-Se pueden abrir con: `start coverage/index.html` (Windows)
+A continuación se presenta el orden cronológico de las tareas del TP, siguiendo el flujo real implementado
 
 ---
 
-## Análisis Estático con SonarCloud
+## 2.1. Creación de Dockerfiles – Pasos
 
-### 1. Configuración de SonarCloud
+Se crearon los Dockerfiles para backend y frontend.
 
-**Pasos realizados:**
+### Imágenes generadas:
 
-1. **Autenticación**: Login en SonarCloud con cuenta de Azure DevOps
+- `tp8-backend-qa`
+- `tp8-backend-prod`
+- `tp8-frontend-qa`
+- `tp8-frontend-prod`
 
-2. **Creación del Proyecto**:
-   - Organization: `sofiaoliveto`
-   - Project Key: `sofiaoliveto_TP7`
-   - Project Name: `TP7`
+Los Dockerfiles permiten contenerizar ambos servicios y diferenciarlos entre QA y PROD desde el build.
 
-3. **Service Connection en Azure DevOps**:
-   - Crear conexión `sonar-cloud-connection`
-   - Autorizar acceso entre Azure DevOps y SonarCloud
-
-4. **Archivo de Configuración** (`sonar-project.properties`)
-Se incluye informacion del proyecto, rutas del codigo fuente, exlusiones, tests y lenguajes testeables
-
-### 2. Integración en el Pipeline
-
-Se agregaron 3 tareas al pipeline de Azure DevOps:
-
-**Tarea 1: Prepare Analysis Configuration** (antes del build)
-```yaml
-- task: SonarCloudPrepare@3
-  inputs:
-    SonarCloud: 'sonar-cloud-connection'
-    organization: 'sofiaoliveto'
-    scannerMode: 'cli'
-    configMode: 'file'
-    cliProjectKey: 'sofiaoliveto_TP7'
-    cliProjectName: 'TP7'
-    cliSources: '.'
-```
-
-**Tarea 2: Run Code Analysis** (después del build)
-```yaml
-- task: SonarCloudAnalyze@3
-  inputs:
-    jdkversion: 'JAVA_HOME_17_X64'
-```
-
-**Tarea 3: Publish Quality Gate Result** (después del anterior)
-```yaml
-- task: SonarCloudPublish@3
-  inputs:
-    pollingTimeoutSec: '300'
-```
-
-### 3. Resultados del Análisis Estático
-
-![Resultados SonarCloud](images/sonarweb.png)
-
-**Acciones Tomadas:**
-- Se priorizaron por impacto (no había críticos para corregir)
-- Quality Gate configurado para fallar si aparecen bugs o vulnerabilities
+**Motivo:**  
+Separar versiones QA y PROD evita confusiones, ayuda a pruebas controladas y permite desplegar cada entorno de manera independiente.
 
 ---
 
-## Pruebas de Integración con Cypress
+## 2.2. Configuración del GitHub Container Registry (GHCR)
 
-### 1. Instalación y Configuración
+Una vez creadas las imágenes, configuramos GHCR para publicarlas desde GitHub Actions.
 
-**Instalación:**
-```bash
-npm install cypress --save-dev
-```
+El pipeline realiza:
 
-**Inicialización:**
-```bash
-npx cypress open
-```
+1. Log in en GHCR.  
+2. Build de imágenes QA y PROD para backend y frontend.  
+3. Push a GHCR con los nombres indicados.
 
-**Configuración** (`cypress.config.js`)
-Se incluyo el código de la guía
-
-### 2. Casos de Prueba Implementados
-
-#### **CP1: Creación Exitosa de Palabra**
-
-**Objetivo:** Verificar el flujo completo de agregar una nueva palabra
-
-**Spec:** `cypress/e2e/add_word.cy.js`
-
-**Resultado:**
-![Test de Creación Exitosa](images/test1cypress.png)
+**Motivo de elegir GHCR:**  
+- Integración nativa con GitHub.  
+- Publicación automática usando `GITHUB_TOKEN`.  
+- No requiere gestionar credenciales externas.
 
 ---
 
-#### **CP2: Eliminación de Palabra (Confirmada)**
+## 2.3. Creación del Pipeline CI/CD – GitHub Actions
 
-**Objetivo:** Validar el flujo completo de borrado cuando el usuario confirma
+En el directorio `.github/workflows/` se configuró un workflow genérico que:
 
-**Spec:** `cypress/e2e/delete.cy.js`
+1. Construye backend y frontend.  
+2. Genera imágenes Docker QA y PROD.  
+3. Publica todas las imágenes a GHCR.  
+4. Despliega o deja preparado el despliegue hacia QA/PROD.
 
-**Resultado:**
-![Test de Eliminación](images/delete.png)
-
----
-
-#### **CP3: Cancelación de Eliminación**
-
-**Objetivo:** Verificar que NO se elimina si el usuario cancela la confirmación
-
-**Spec:** `cypress/e2e/delete_cancelled.cy.js`
-
-**Resultado:**
-![Test de Cancelación](images/noborrar.png)
+**Motivo:** Automatizar todo el ciclo de build → empaquetado → publicación.
 
 ---
 
-#### **CP4: Validación de Palabra Vacía**
+## 2.4. Deploy del ambiente QA en Render
 
-**Objetivo:** Verificar manejo de errores al intentar agregar palabra vacía
+Con las imágenes QA publicadas (`tp8-backend-qa` y `tp8-frontend-qa`), se configuró el ambiente QA en Render:
 
-**Spec:** `cypress/e2e/add_empty_word.cy.js`
+- Servicio creado desde imagen Docker.  
+- Variables de entorno específicas para QA.  
+- Plan free tier.  
 
-**Resultado:**
-![Test de Validación](images/Screenshot%202025-11-10%20235323.png)
-
----
-
-### 3. Estrategia de Testing E2E
-
-**Puntos Clave:**
-
-1. **Aislamiento de Tests**: Cada test usa palabras únicas con timestamp para evitar colisiones
-2. **Esperas Inteligentes**: Se usan `cy.wait()` y assertions para sincronización robusta
-3. **Verificación Dual**: Se valida tanto en UI como en backend (via `cy.request`)
-4. **Manejo de Diálogos**: Se usa `cy.stub()` para controlar `window.confirm`
-5. **Retries Automáticos**: Configurados 2 reintentos en modo CI para flakiness
+**Motivo para usar Render QA:**  
+Gratis, simple y permite testear el comportamiento del contenedor en la nube.
 
 ---
 
-## Configuración del Pipeline CI/CD
+## 2.5. Deploy del ambiente PROD en Render
 
-### Arquitectura del Pipeline
+Se configuró un segundo servicio en Render, esta vez usando las imágenes productivas:
 
-El pipeline se divide en **3 stages principales**:
+- `tp8-backend-prod`  
+- `tp8-frontend-prod`
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ STAGE 1: BuildAndTest                                      │
-├─────────────────────────────────────────────────────────────┤
-│ ├─ Backend Unit Tests + Coverage                           │
-│ ├─ Verify Backend Coverage Threshold (70%)                 │
-│ ├─ Frontend Unit Tests + Coverage                          │
-│ ├─ Verify Frontend Coverage Threshold (70%)                │
-│ ├─ SonarCloud Prepare → Analyze → Publish                  │
-│ └─ Build & Package Artifacts                               │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ STAGE 2: Deploy_QA                                         │
-├─────────────────────────────────────────────────────────────┤
-│ ├─ Deploy to Azure Web App (QA)                            │
-│ ├─ Health Check                                            │
-│ └─ Run Cypress Integration Tests                           │
-└─────────────────────────────────────────────────────────────┘
-```
+Diferencias principales respecto a QA:
 
-### Resultados del Pipeline
+- Variables de entorno con `NODE_ENV=production`.  
+- Configuración distinta dentro del free tier.  
+- No se usa la misma imagen de QA para mantener segregación real.
 
-Los resultados se publican en la pestaña **Tests** de Azure DevOps:
-
-**Tests Unitarios:**
-![Resultados Tests Unitarios](images/testunit.png)
-
-**Code Coverage:**
-![Resultados Coverage](images/coverage.png)
-
-**SonarCloud Quality Gate:**
-![Resultados Sonar](images/sonar.png)
-
-**Tests E2E (Cypress):**
-![Resultados E2E](images/e2e.png)
+**Motivo:**  
+Render facilita mantener QA y PROD como dos servicios independientes, cumpliendo con la consigna del TP.
 
 ---
 
-## Reflexión Personal
+## 2.6. Versionado de imágenes
 
-**Desafíos técnicos enfrentados:**
+Todas las imágenes se generan con nombres separados entre QA y PROD:
 
-1. **Configurar coverage con múltiples formatos**: Jest necesita `cobertura` para Azure DevOps, pero `lcov` para SonarCloud — aprendí sobre reporters múltiples.
+- `tp8-backend-qa`  
+- `tp8-frontend-qa`  
+- `tp8-backend-prod`  
+- `tp8-frontend-prod`
 
-2. **Timing en tests de Cypress**: Al principio, los tests eran flaky porque no esperaba correctamente las cargas asíncronas — aprendí sobre `cy.wait()` estratégico.
+**Motivo:**  
+Evita depender de `latest` y asegura que cada entorno use su propia versión.
 
-3. **Exclusiones en SonarCloud**: Inicialmente analizaba `node_modules` y `cypress/`, generando miles de falsos positivos — aprendí la importancia de configurar bien `sonar-project.properties`.
+---
 
-**Lecciones técnicas:**
+## 2.7. Quality Gates y aprobaciones manuales
 
-- **Principio de Pirámide de Tests**: Muchos tests unitarios (rápidos, baratos), algunos tests de integración, pocos E2E (lentos, caros).
-- **Coverage != Calidad**: 100% coverage con tests malos es peor que 70% con tests bien diseñados.
-- **Automatización temprana**: Configurar CI/CD desde el día 1 es más fácil que agregarlo a un proyecto maduro.
+A nivel pipeline, se contempla:
 
-### Conclusión
+- Validación del build.  
+- Validación de la creación de imágenes.  
+- QA como primer paso de despliegue.  
+- Aprobación manual previa a PROD.  
 
-Este trabajo práctico me demostró que **calidad no es opcional** en software profesional. Las herramientas de testing, coverage y análisis estático no son "nice to have" — son la diferencia entre:
+---
 
-- Código que funciona HOY vs. código que funcionará en 6 meses
-- Deployar con confianza vs. deployar con miedo
-- Equipo que escala vs. equipo que se ahoga en bugs
+# 3. Justificación Final de las Decisiones
 
-La inversión inicial en aprender Jest, Cypress, SonarCloud y configurar pipelines se paga en **tranquilidad mental** y **velocidad sostenible**.
+### 3.1. Por qué Docker  
+Permite empaquetar y ejecutar la aplicación sin dependencias externas.
+
+### 3.2. Por qué GHCR  
+Integración directa con GitHub y publicación automática de imágenes sin credenciales adicionales.
+
+### 3.3. Por qué Render para QA y PROD  
+- Simplicidad  
+- Plan gratuito  
+- Deploy directo desde imágenes Docker
+
+### 3.4. Por qué GitHub Actions  
+Automatización completa dentro del mismo repositorio.
+
+### 3.5. Por qué imágenes separadas para QA y PROD  
+Control total sobre qué versión se prueba y cuál va a producción.
+
+---
+
+# 4. Reflexión y Aprendizajes
+
+- Aprendimos a contenerizar backend y frontend.  
+- Publicamos imágenes reales en GHCR.  
+- Armamos un pipeline CI/CD con GitHub Actions.  
+- Desplegamos QA y PROD en Render.  
+- Entendimos cómo separar ambientes de forma profesional.  
+
