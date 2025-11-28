@@ -12,17 +12,17 @@ describe('Cancelación de borrado', () => {
     });
 
     // Contar cuántas palabras hay antes
-    cy.get('#listaPalabras div').then(($itemsBefore) => {
+    cy.get('#listaPalabras .palabra-item').then(($itemsBefore) => {
       const cantidadAntes = $itemsBefore.length;
 
       // Intentar borrar
-      cy.get('#listaPalabras div:nth-child(1) > button.delete-btn').click();
+      cy.get('#listaPalabras .palabra-item:first-child .delete-btn', { timeout: 5000 }).click();
 
       // Verificar que se llamó a confirm
       cy.get('@confirmSpy').should('have.been.calledOnce');
 
       // Verificar que la cantidad de palabras no cambió
-      cy.get('#listaPalabras div').should('have.length', cantidadAntes);
+      cy.get('#listaPalabras .palabra-item').should('have.length', cantidadAntes);
     });
   });
 });
