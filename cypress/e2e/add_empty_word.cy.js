@@ -1,11 +1,6 @@
 describe('Validación de palabra vacía', () => {
   it('No agrega palabra si el input está vacío', () => {
     cy.visit('/'); // Usa baseUrl del config
-      cy.get('#loginUsername').click();
-      cy.get('#loginUsername').type('prueba');
-      cy.get('#loginPassword').click();
-      cy.get('#loginPassword').type('prueba');
-      cy.get('#loginForm button').click();
 
     // Esperar a que el contenedor de palabras exista y un pequeño buffer antes de contar
     cy.get('#listaPalabras', { timeout: 10000 }).should('exist');
