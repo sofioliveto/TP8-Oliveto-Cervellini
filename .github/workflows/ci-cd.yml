@@ -160,11 +160,57 @@ jobs:
           fi
 
   # =======================================
+  # 🧪 INTEGRATION TESTS QA
+  # =======================================
+  integration-tests-qa:
+    name: Integration Tests QA
+    needs: deploy-qa
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Wait for QA frontend to be ready
+        run: |
+          echo "🔍 Waiting for QA Frontend at https://tp8-frontend-qa.onrender.com"
+          for i in {1..10}; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" https://tp8-frontend-qa.onrender.com || echo "000")
+            if [ "$response" -eq 200 ]; then
+              echo "✅ QA Frontend is ready"
+              exit 0
+            fi
+            echo "⏳ Waiting... attempt $i/10 (status: $response)"
+            sleep 15
+          done
+          echo "⚠️ QA Frontend did not become ready in time"
+          exit 1
+
+      - name: Run Cypress integration tests
+        uses: cypress-io/github-action@v6
+        with:
+          browser: chrome
+          config: baseUrl=https://tp8-frontend-qa.onrender.com
+
+      - name: Upload Cypress test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-results
+          path: cypress/results/
+
+  # =======================================
   # 🚀 DEPLOY TO PRODUCTION
   # =======================================
   deploy-prod:
     name: Deploy to Production
-    needs: deploy-qa
+    needs: integration-tests-qa
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment:

@@ -1,0 +1,14 @@
+{
+  "name": "tp8-oliveto-cervellini",
+  "version": "1.0.0",
+  "description": "Integration tests for TP8 Oliveto Cervellini",
+  "scripts": {
+    "cypress:run": "cypress run",
+    "cypress:open": "cypress open"
+  },
+  "devDependencies": {
+    "cypress": "^13.6.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
