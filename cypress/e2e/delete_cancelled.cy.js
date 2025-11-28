@@ -20,8 +20,8 @@ describe('Cancelación de borrado', () => {
     cy.get('#listaPalabras div.palabra-item', { timeout: 5000 }).then(($itemsBefore) => {
       const cantidadAntes = $itemsBefore.length;
 
-      // Intentar borrar
-      cy.get('#listaPalabras div.palabra-item:first-child .delete-btn', { timeout: 5000 }).click();
+      // Intentar borrar (usando el mismo patrón que delete.cy.js)
+      cy.get('#listaPalabras div:nth-child(1) > button.delete-btn', { timeout: 5000 }).click();
 
       // Verificar que se llamó a confirm
       cy.get('@confirmSpy').should('have.been.calledOnce');
