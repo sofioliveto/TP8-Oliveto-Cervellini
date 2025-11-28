@@ -6,23 +6,28 @@ describe('Cancelación de borrado', () => {
     cy.get('#listaPalabras', { timeout: 10000 }).should('exist');
     cy.wait(1000); // <-- tiempo de espera agregado
 
+    // Agregar una palabra para asegurar que haya al menos una para probar
+    cy.get('#palabraInput').type('testCancelDelete');
+    cy.get('div.form-group button').click();
+    cy.wait(1000); // Esperar a que se agregue
+
     // Espiar y forzar confirmación negativa
     cy.window().then((win) => {
       cy.stub(win, 'confirm').returns(false).as('confirmSpy');
     });
 
     // Contar cuántas palabras hay antes
-    cy.get('#listaPalabras .palabra-item').then(($itemsBefore) => {
+    cy.get('#listaPalabras div.palabra-item', { timeout: 5000 }).then(($itemsBefore) => {
       const cantidadAntes = $itemsBefore.length;
 
       // Intentar borrar
-      cy.get('#listaPalabras .palabra-item:first-child .delete-btn', { timeout: 5000 }).click();
+      cy.get('#listaPalabras div.palabra-item:first-child .delete-btn', { timeout: 5000 }).click();
 
       // Verificar que se llamó a confirm
       cy.get('@confirmSpy').should('have.been.calledOnce');
 
       // Verificar que la cantidad de palabras no cambió
-      cy.get('#listaPalabras .palabra-item').should('have.length', cantidadAntes);
+      cy.get('#listaPalabras div.palabra-item').should('have.length', cantidadAntes);
     });
   });
 });

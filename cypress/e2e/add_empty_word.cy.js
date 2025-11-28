@@ -6,16 +6,16 @@ describe('Validación de palabra vacía', () => {
     cy.get('#listaPalabras', { timeout: 10000 }).should('exist');
     cy.wait(1000); // <-- tiempo de espera agregado
 
-    // Contar cuántas palabras hay antes
-    cy.get('#listaPalabras div').then(($itemsBefore) => {
-      const cantidadAntes = $itemsBefore.length;
+    // Contar cuántas palabras hay antes (puede ser 0 si no hay palabras)
+    cy.get('#listaPalabras').then(($container) => {
+      const cantidadAntes = $container.find('div.palabra-item').length;
 
       // Simular clic sin escribir nada
       cy.get('#palabraInput').clear(); // Asegura que esté vacío
       cy.get('div.form-group button').click();
 
       // Verificar que la cantidad de palabras no cambió
-      cy.get('#listaPalabras div').should('have.length', cantidadAntes);
+      cy.get('#listaPalabras').find('div.palabra-item').should('have.length', cantidadAntes);
     });
   });
 });
